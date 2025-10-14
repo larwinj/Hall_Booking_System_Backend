@@ -1,0 +1,11 @@
+from app.models.user import User  # noqa: F401
+from app.models.venue import Venue  # noqa: F401
+from app.models.room import Room  # noqa: F401
+from app.models.addon import Addon  # noqa: F401
+from app.models.booking import Booking  # noqa: F401
+from app.models.booking_addon import BookingAddon  # noqa: F401
+from app.models.booking_customer import BookingCustomer  # noqa: F401
+from app.models.report import Report  # noqa: F401
+from app.models.query import Query  # noqa: F401
+from app.models.favorite import Favorite  # noqa: F401
+from app.models.review import Review  # noqa: F401
