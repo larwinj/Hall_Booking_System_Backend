@@ -33,7 +33,14 @@ Copy backend/.env.example to backend/.env and adjust if needed.
 
 ## Database
 - Alembic is configured via backend/alembic. Initial migration provided at alembic/versions/0001_init.py
-- The app creates tables according to models; enums and FKs are included.
+- By default this project previously relied on Alembic for applying schema migrations.
+- The application now creates/updates database tables automatically on startup by running SQLAlchemy's
+	metadata.create_all against the configured database URL. This means changes to model classes will be
+	reflected in the actual PostgreSQL database when the FastAPI app starts (useful for local/dev workflows).
+
+Warning: metadata.create_all performs simple table/column creation but does not perform safe schema
+migrations (drops, column renames, data migrations, etc.). For production environments you should still
+use Alembic (or another proper migration tool) to manage schema changes safely.
 
 ## Seeding
 Inside backend container:

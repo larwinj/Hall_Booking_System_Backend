@@ -7,9 +7,12 @@ from app.core.config import get_settings
 from app.core.security import get_password_hash, verify_password, create_token, decode_token
 from app.models.user import User
 from app.models.enums import UserRole
-from app.schemas.user import UserCreate, UserOut, TokenPair
+from app.schemas.user import UserCreate, UserOut, TokenPair, ModeratorRegistration
 
 from fastapi.security import OAuth2PasswordRequestForm
+
+from app.models.venue import Venue
+from app.api.deps import get_current_user  
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -24,6 +27,25 @@ async def signup(payload: UserCreate, db: AsyncSession = Depends(get_db)):
     await db.refresh(user)
     return user
 
+@router.post("/register_moderator", response_model=UserOut)
+async def register_moderator(payload: ModeratorRegistration, db: AsyncSession = Depends(get_db)):
+    existing = (await db.execute(select(User).where(User.email == payload.user.email))).scalar_one_or_none()
+    if existing:
+        raise HTTPException(status_code=400, detail="Email already registered")
+    user = User(
+        email=payload.user.email,
+        hashed_password=get_password_hash(payload.user.password),
+        role=UserRole.moderator
+    )
+    db.add(user)
+    await db.flush()
+    venue = Venue(**payload.venue.model_dump())
+    db.add(venue)
+    await db.flush()
+    user.assigned_venue_id = venue.id
+    await db.commit()
+    await db.refresh(user)
+    return user
 
 @router.post("/login", response_model=TokenPair)
 async def login(form_data: OAuth2PasswordRequestForm = Depends(), db: AsyncSession = Depends(get_db)):
@@ -82,10 +104,8 @@ async def refresh_token(refresh_token: str, db: AsyncSession = Depends(get_db)):
         raise HTTPException(status_code=401, detail="Invalid refresh token")
 
 @router.post("/logout")
-async def logout(email: str, db: AsyncSession = Depends(get_db)):
-    user = (await db.execute(select(User).where(User.email == email))).scalar_one_or_none()
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
+async def logout(user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    # Secure: Only the authenticated user can invalidate their own tokens
     user.token_version += 1
     await db.commit()
     return {"success": True, "message": "Logged out"}

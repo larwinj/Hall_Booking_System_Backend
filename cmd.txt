@@ -1,0 +1,6 @@
+For taking the version changed/tracked file :
+        ----- alembic revision --autogenerate -m "NaamaName"
+
+To make the newer version to reflect on te the datavase
+        ------alembic upgrade head
+

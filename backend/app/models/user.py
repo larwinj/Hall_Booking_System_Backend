@@ -6,10 +6,10 @@ from app.models.enums import UserRole
 class User(Base):
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
     email: Mapped[str] = mapped_column(String(255), unique=True, index=True, nullable=False)
+    
     hashed_password: Mapped[str] = mapped_column(String(255), nullable=False)
     role: Mapped[UserRole] = mapped_column(Enum(UserRole, name="user_role_enum"), default=UserRole.customer, nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
-    # moderation scope
     assigned_venue_id: Mapped[int | None] = mapped_column(ForeignKey("venue.id"), nullable=True)
     # token version for refresh invalidation
     token_version: Mapped[int] = mapped_column(Integer, default=0, nullable=False)

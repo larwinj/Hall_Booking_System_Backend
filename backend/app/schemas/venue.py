@@ -25,3 +25,5 @@ class VenueOut(VenueBase):
     id: int
     class Config:
         from_attributes = True
+        
+    

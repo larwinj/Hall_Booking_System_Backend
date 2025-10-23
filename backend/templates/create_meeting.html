@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Create Meeting</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            padding: 50px 40px;
+            max-width: 500px;
+            width: 100%;
+        }
+
+        h1 {
+            color: #333;
+            font-size: 2em;
+            margin-bottom: 30px;
+            text-align: center;
+        }
+
+        .form-group {
+            margin-bottom: 25px;
+        }
+
+        label {
+            display: block;
+            color: #555;
+            font-weight: 600;
+            margin-bottom: 8px;
+            font-size: 0.95em;
+        }
+
+        input {
+            width: 100%;
+            padding: 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            font-size: 1em;
+            transition: all 0.3s ease;
+        }
+
+        input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        button {
+            width: 100%;
+            padding: 18px;
+            font-size: 1.1em;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: 600;
+            margin-top: 10px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-primary:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .btn-secondary {
+            background: #f0f0f0;
+            color: #333;
+        }
+
+        .btn-secondary:hover {
+            background: #e0e0e0;
+        }
+
+        .error {
+            background: #fee;
+            color: #c33;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: none;
+        }
+
+        .success {
+            background: #efe;
+            color: #3c3;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: none;
+        }
+
+        .meeting-link {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 15px;
+            word-break: break-all;
+            font-family: monospace;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .copy-btn {
+            padding: 8px 15px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.9em;
+            margin-left: 10px;
+            white-space: nowrap;
+        }
+
+        .copy-btn:hover {
+            background: #5568d3;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Create New Meeting</h1>
+        
+        <div id="error" class="error"></div>
+        <div id="success" class="success"></div>
+
+        <form id="createForm">
+            <div class="form-group">
+                <label for="meetingName">Meeting Name</label>
+                <input type="text" id="meetingName" required 
+                       placeholder="e.g., team-standup" 
+                       pattern="[a-zA-Z0-9-_]+"
+                       title="Only letters, numbers, hyphens, and underscores allowed">
+            </div>
+
+            <div class="form-group">
+                <label for="hostName">Your Name</label>
+                <input type="text" id="hostName" required 
+                       placeholder="Enter your name">
+            </div>
+
+            <button type="submit" class="btn-primary" id="createBtn">
+                Create Meeting
+            </button>
+
+            <button type="button" class="btn-secondary" onclick="goBack()">
+                Cancel
+            </button>
+        </form>
+    </div>
+
+    <script>
+        const form = document.getElementById('createForm');
+        const errorDiv = document.getElementById('error');
+        const successDiv = document.getElementById('success');
+        const createBtn = document.getElementById('createBtn');
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const meetingName = document.getElementById('meetingName').value.trim();
+            const hostName = document.getElementById('hostName').value.trim();
+
+            errorDiv.style.display = 'none';
+            successDiv.style.display = 'none';
+            createBtn.disabled = true;
+            createBtn.textContent = 'Creating...';
+
+            try {
+                const response = await fetch('/api/meeting/create', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        meeting_name: meetingName,
+                        host_name: hostName
+                    })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    const fullUrl = window.location.origin + data.meeting_url;
+                    
+                    successDiv.innerHTML = `
+                        <strong>Meeting Created Successfully!</strong>
+                        <div class="meeting-link">
+                            <span>${fullUrl}</span>
+                            <button class="copy-btn" onclick="copyLink('${fullUrl}')">Copy</button>
+                        </div>
+                    `;
+                    successDiv.style.display = 'block';
+                    
+                    // Store host_id in sessionStorage
+                    sessionStorage.setItem('host_id', data.host_id);
+                    sessionStorage.setItem('user_name', hostName);
+                    
+                    setTimeout(() => {
+                        window.location.href = data.meeting_url;
+                    }, 2000);
+                } else {
+                    errorDiv.textContent = data.detail || 'Failed to create meeting';
+                    errorDiv.style.display = 'block';
+                    createBtn.disabled = false;
+                    createBtn.textContent = 'Create Meeting';
+                }
+            } catch (error) {
+                errorDiv.textContent = 'Network error. Please try again.';
+                errorDiv.style.display = 'block';
+                createBtn.disabled = false;
+                createBtn.textContent = 'Create Meeting';
+            }
+        });
+
+        function copyLink(url) {
+            navigator.clipboard.writeText(url).then(() => {
+                alert('Link copied to clipboard!');
+            });
+        }
+
+        function goBack() {
+            window.location.href = '/';
+        }
+    </script>
+</body>
+</html>

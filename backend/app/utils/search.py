@@ -21,7 +21,7 @@ async def search_rooms(
         stmt = stmt.where(Room.capacity >= capacity)
     if amenities:
         for am in amenities:
-            stmt = stmt.where(func.array_position(Room.amenities, am) != None)  # noqa: E711
+            stmt = stmt.where(func.array_position(Room.amenities, am) != None)
 
     rooms = (await db.execute(stmt)).scalars().all()
 

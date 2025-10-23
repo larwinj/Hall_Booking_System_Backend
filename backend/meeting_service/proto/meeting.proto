@@ -1,0 +1,128 @@
+syntax = "proto3";
+
+package meeting;
+
+service MeetingService {
+    rpc CreateMeeting(CreateMeetingRequest) returns (MeetingResponse);
+    rpc JoinMeeting(JoinMeetingRequest) returns (JoinMeetingResponse);
+    rpc LeaveMeeting(LeaveMeetingRequest) returns (StatusResponse);
+    rpc SendMessage(MessageRequest) returns (StatusResponse);
+    rpc GetMessages(GetMessagesRequest) returns (MessageListResponse);
+    rpc StreamMessages(StreamMessagesRequest) returns (stream MessageResponse);
+    rpc SendWebRTCSignal(WebRTCSignalRequest) returns (StatusResponse);
+    rpc StreamWebRTCSignals(StreamSignalsRequest) returns (stream WebRTCSignalResponse);
+    rpc UpdateParticipantStatus(ParticipantStatusRequest) returns (StatusResponse);
+    rpc GetParticipants(GetParticipantsRequest) returns (ParticipantListResponse);
+    rpc EndMeeting(EndMeetingRequest) returns (StatusResponse);
+}
+
+message CreateMeetingRequest {
+    string meeting_name = 1;
+    string host_id = 2;
+    string host_name = 3;
+}
+
+message MeetingResponse {
+    bool success = 1;
+    string message = 2;
+    string meeting_id = 3;
+    string meeting_url = 4;
+}
+
+message JoinMeetingRequest {
+    string meeting_name = 1;
+    string user_id = 2;
+    string user_name = 3;
+}
+
+message JoinMeetingResponse {
+    bool success = 1;
+    string message = 2;
+    string meeting_id = 3;
+    repeated Participant participants = 4;
+}
+
+message LeaveMeetingRequest {
+    string meeting_id = 1;
+    string user_id = 2;
+}
+
+message StatusResponse {
+    bool success = 1;
+    string message = 2;
+}
+
+message MessageRequest {
+    string meeting_id = 1;
+    string user_id = 2;
+    string user_name = 3;
+    string message = 4;
+}
+
+message MessageResponse {
+    string message_id = 1;
+    string user_id = 2;
+    string user_name = 3;
+    string message = 4;
+    string timestamp = 5;
+}
+
+message GetMessagesRequest {
+    string meeting_id = 1;
+}
+
+message MessageListResponse {
+    repeated MessageResponse messages = 1;
+}
+
+message StreamMessagesRequest {
+    string meeting_id = 1;
+}
+
+message WebRTCSignalRequest {
+    string meeting_id = 1;
+    string from_user_id = 2;
+    string to_user_id = 3;
+    string signal_type = 4;
+    string signal_data = 5;
+}
+
+message WebRTCSignalResponse {
+    string from_user_id = 1;
+    string to_user_id = 2;
+    string signal_type = 3;
+    string signal_data = 4;
+}
+
+message StreamSignalsRequest {
+    string meeting_id = 1;
+    string user_id = 2;
+}
+
+message ParticipantStatusRequest {
+    string meeting_id = 1;
+    string user_id = 2;
+    bool audio_enabled = 3;
+    bool video_enabled = 4;
+}
+
+message Participant {
+    string user_id = 1;
+    string user_name = 2;
+    bool audio_enabled = 3;
+    bool video_enabled = 4;
+    bool is_host = 5;
+}
+
+message GetParticipantsRequest {
+    string meeting_id = 1;
+}
+
+message ParticipantListResponse {
+    repeated Participant participants = 1;
+}
+
+message EndMeetingRequest {
+    string meeting_id = 1;
+    string host_id = 2;
+}

@@ -32,7 +32,3 @@ def require_role(*roles: UserRole):
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient permissions")
         return user
     return checker
-
-async def require_moderator_scope(user: User = Depends(require_role(UserRole.moderator, UserRole.admin))) -> User:
-    # Admin bypasses venue restriction
-    return user

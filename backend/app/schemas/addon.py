@@ -6,7 +6,7 @@ class AddonBase(BaseModel):
     price: float
 
 class AddonCreate(AddonBase):
-    pass
+    venue_id: int
 
 class AddonUpdate(BaseModel):
     name: str | None = None
@@ -15,5 +15,6 @@ class AddonUpdate(BaseModel):
 
 class AddonOut(AddonBase):
     id: int
+    venue_id: int
     class Config:
         from_attributes = True

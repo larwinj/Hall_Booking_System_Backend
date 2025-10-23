@@ -1,5 +1,9 @@
 from pydantic import BaseModel, Field
 from typing import List
+from app.schemas.addon import AddonBase
+
+class RoomAddonCreate(AddonBase):
+    pass
 
 class RoomBase(BaseModel):
     venue_id: int
@@ -10,7 +14,7 @@ class RoomBase(BaseModel):
     description: str | None = None
 
 class RoomCreate(RoomBase):
-    pass
+    addons: List[RoomAddonCreate] = []
 
 class RoomUpdate(BaseModel):
     name: str | None = None

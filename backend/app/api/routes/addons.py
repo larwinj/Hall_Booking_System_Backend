@@ -2,15 +2,21 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from app.db.session import get_db
-from app.api.deps import require_role
+from app.api.deps import get_current_user
 from app.models.enums import UserRole
 from app.models.addon import Addon
 from app.schemas.addon import AddonCreate, AddonUpdate, AddonOut
 
+from app.models.user import User
+
 router = APIRouter(prefix="/addons", tags=["addons"])
 
 @router.post("/", response_model=AddonOut)
-async def create_addon(payload: AddonCreate, _: str = Depends(require_role(UserRole.admin)), db: AsyncSession = Depends(get_db)):
+async def create_addon(payload: AddonCreate, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    if user.role not in [UserRole.moderator, UserRole.admin]:
+        raise HTTPException(status_code=403, detail="Insufficient permissions")
+    if user.role == UserRole.moderator and payload.venue_id != user.assigned_venue_id:
+        raise HTTPException(status_code=403, detail="Cannot create addon outside assigned venue")
     addon = Addon(**payload.model_dump())
     db.add(addon)
     await db.commit()
@@ -23,10 +29,14 @@ async def list_addons(db: AsyncSession = Depends(get_db)):
     return res.scalars().all()
 
 @router.patch("/{addon_id}", response_model=AddonOut)
-async def update_addon(addon_id: int, payload: AddonUpdate, _: str = Depends(require_role(UserRole.admin)), db: AsyncSession = Depends(get_db)):
+async def update_addon(addon_id: int, payload: AddonUpdate, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    if user.role not in [UserRole.moderator, UserRole.admin]:
+        raise HTTPException(status_code=403, detail="Insufficient permissions")
     addon = (await db.execute(select(Addon).where(Addon.id == addon_id))).scalar_one_or_none()
     if not addon:
         raise HTTPException(status_code=404, detail="Addon not found")
+    if user.role == UserRole.moderator and user.assigned_venue_id != addon.venue_id:
+        raise HTTPException(status_code=403, detail="Cannot update addon outside assigned venue")
     for k, v in payload.model_dump(exclude_unset=True).items():
         setattr(addon, k, v)
     await db.commit()
@@ -34,10 +44,14 @@ async def update_addon(addon_id: int, payload: AddonUpdate, _: str = Depends(req
     return addon
 
 @router.delete("/{addon_id}")
-async def delete_addon(addon_id: int, _: str = Depends(require_role(UserRole.admin)), db: AsyncSession = Depends(get_db)):
+async def delete_addon(addon_id: int, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    if user.role not in [UserRole.moderator, UserRole.admin]:
+        raise HTTPException(status_code=403, detail="Insufficient permissions")
     addon = (await db.execute(select(Addon).where(Addon.id == addon_id))).scalar_one_or_none()
     if not addon:
         raise HTTPException(status_code=404, detail="Addon not found")
+    if user.role == UserRole.moderator and user.assigned_venue_id != addon.venue_id:
+        raise HTTPException(status_code=403, detail="Cannot delete addon outside assigned venue")
     await db.delete(addon)
     await db.commit()
     return {"success": True}

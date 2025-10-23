@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Video Meeting Platform</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            padding: 60px 40px;
+            max-width: 500px;
+            width: 100%;
+            text-align: center;
+        }
+
+        h1 {
+            color: #333;
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        .subtitle {
+            color: #666;
+            font-size: 1.1em;
+            margin-bottom: 40px;
+        }
+
+        .button-group {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        button {
+            padding: 18px 30px;
+            font-size: 1.1em;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 10px 25px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-secondary {
+            background: #f0f0f0;
+            color: #333;
+        }
+
+        .btn-secondary:hover {
+            background: #e0e0e0;
+            transform: translateY(-3px);
+        }
+
+        .icon {
+            margin-right: 10px;
+            font-size: 1.2em;
+        }
+
+        .features {
+            margin-top: 40px;
+            padding-top: 30px;
+            border-top: 2px solid #f0f0f0;
+        }
+
+        .feature-list {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .feature-item {
+            display: flex;
+            align-items: center;
+            justify-content: flex-start;
+            text-align: left;
+            color: #666;
+            font-size: 0.95em;
+        }
+
+        .feature-item::before {
+            content: "✓";
+            color: #667eea;
+            font-weight: bold;
+            margin-right: 10px;
+            font-size: 1.2em;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎥 Video Meeting</h1>
+        <p class="subtitle">Connect with anyone, anywhere</p>
+        
+        <div class="button-group">
+            <button class="btn-primary" onclick="createMeeting()">
+                <span class="icon">➕</span>Create New Meeting
+            </button>
+            <button class="btn-secondary" onclick="showJoinDialog()">
+                <span class="icon">🔗</span>Join Meeting
+            </button>
+        </div>
+
+        <div class="features">
+            <h3 style="color: #333; margin-bottom: 15px;">Features</h3>
+            <div class="feature-list">
+                <div class="feature-item">HD Video & Audio</div>
+                <div class="feature-item">Screen Sharing</div>
+                <div class="feature-item">Live Chat</div>
+                <div class="feature-item">Easy to Use</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function createMeeting() {
+            window.location.href = '/create';
+        }
+
+        function showJoinDialog() {
+            const meetingName = prompt('Enter meeting name or paste meeting link:');
+            if (meetingName) {
+                const cleanName = meetingName.replace(/.*\//, '');
+                window.location.href = `/${cleanName}`;
+            }
+        }
+    </script>
+</body>
+</html>

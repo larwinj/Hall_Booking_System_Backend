@@ -1,29 +1,66 @@
+# main.py (updated with new middlewares)
 from fastapi import FastAPI, Request
-from fastapi.middleware.cors import CORSMiddleware
+from contextlib import asynccontextmanager
 from fastapi.responses import JSONResponse
 from app.core.config import get_settings
 from app.core.logging_conf import setup_logging
 from app.api.routes import health, auth, users, venues, rooms, addons, bookings, favorites, reviews, queries, reports, search, cms
+from app.middleware.cors import setup_cors_middleware
+# from app.middleware.security_headers import setup_security_headers_middleware
+from app.middleware.rate_limiting import setup_rate_limiting_middleware
+from app.middleware.trusted_hosts import setup_trusted_hosts_middleware
+from starlette.middleware.base import BaseHTTPMiddleware
+import logging
+import time
+from typing import Callable
 
 setup_logging()
 settings = get_settings()
+logger = logging.getLogger(__name__)
 
-app = FastAPI(title="Hall Booking System", version="1.0.0")
+class LoggingMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next: Callable):
+        start_time = time.time()
+        logger.info(f"Request: {request.method} {request.url} - Headers: {dict(request.headers)}")
+        
+        try:
+            response = await call_next(request)
+            duration = time.time() - start_time
+            logger.info(f"Response: {request.method} {request.url} - Status: {response.status_code} - Duration: {duration:.2f}s")
+            return response
+        except Exception as e:
+            duration = time.time() - start_time
+            logger.error(f"Error: {request.method} {request.url} - Exception: {str(e)} - Duration: {duration:.2f}s")
+            raise
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=settings.BACKEND_CORS_ORIGINS if isinstance(settings.BACKEND_CORS_ORIGINS, list) else ["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Initialize database tables on startup
+    from app.db.session import init_db
+    from app.db.mongo import get_client, close_client
+    logger.info("Initializing database tables...")
+    await init_db()
+    logger.info("Database tables initialized.")
+    # initialize mongo client and attach to app.state for reuse
+    app.state.mongo = get_client()
+    yield
+    logger.info("Application shutdown event triggered.")
+    # close mongo client
+    close_client()
 
-# Centralized error handler
+app = FastAPI(title="Hall Booking System", version="1.0.0", lifespan=lifespan)
+
+setup_trusted_hosts_middleware(app)
+setup_rate_limiting_middleware(app)
+setup_cors_middleware(app)
+# setup_security_headers_middleware(app)
+app.add_middleware(LoggingMiddleware)
+
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
-    return JSONResponse(status_code=400, content={"success": False, "error": {"code": "bad_request", "message": str(exc)}})
+    logger.error(f"Global Exception: {str(exc)} - Request: {request.method} {request.url}")
+    return JSONResponse(status_code=500, content={"success": False, "error": {"code": "internal_server_error", "message": "Internal server error"}})
 
-# Routers
 app.include_router(auth.router)
 app.include_router(users.router)
 app.include_router(venues.router)

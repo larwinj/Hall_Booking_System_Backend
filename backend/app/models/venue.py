@@ -13,4 +13,5 @@ class Venue(Base):
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     rooms = relationship("Room", back_populates="venue", cascade="all, delete-orphan")
-    moderators = relationshi1p("User", back_populates="assigned_venue")
+    moderators = relationship("User", back_populates="assigned_venue")
+    addons = relationship("Addon", back_populates="venue", cascade="all, delete-orphan")

@@ -5,18 +5,23 @@ from app.db.session import get_db
 from app.api.deps import get_current_user, require_role
 from app.models.enums import UserRole
 from app.models.room import Room
-from app.models.venue import Venue
+from app.models.addon import Addon
 from app.schemas.room import RoomCreate, RoomUpdate, RoomOut
 
 router = APIRouter(prefix="/rooms", tags=["rooms"])
 
 @router.post("/", response_model=RoomOut)
 async def create_room(payload: RoomCreate, user=Depends(get_current_user), db: AsyncSession = Depends(get_db)):
-    # moderators: only for their assigned venue, admins can create for any venue
+    if user.role not in [UserRole.moderator, UserRole.admin]:
+        raise HTTPException(status_code=403, detail="Insufficient permissions")
     if user.role == UserRole.moderator and user.assigned_venue_id != payload.venue_id:
         raise HTTPException(status_code=403, detail="Cannot create room outside assigned venue")
-    room = Room(**payload.model_dump())
+    room = Room(**payload.model_dump(exclude={'addons'}))
     db.add(room)
+    await db.flush()
+    for addon_data in payload.addons:
+        addon = Addon(venue_id=room.venue_id, **addon_data.model_dump())
+        db.add(addon)
     await db.commit()
     await db.refresh(room)
     return room
