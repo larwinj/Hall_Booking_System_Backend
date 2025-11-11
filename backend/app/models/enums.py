@@ -18,3 +18,4 @@ class QueryStatus(str, enum.Enum):
 class PublicationStatus(str, enum.Enum):
     draft = "draft"
     published = "published"
+    

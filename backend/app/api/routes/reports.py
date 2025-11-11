@@ -21,3 +21,12 @@ async def create_report(payload: ReportCreate, _: str = Depends(require_role(Use
 async def list_reports(_: str = Depends(require_role(UserRole.admin)), db: AsyncSession = Depends(get_db)):
     res = await db.execute(select(Report))
     return res.scalars().all()
+
+@router.delete("/delete")
+async def delete_room(report_id: int, _: str = Depends(require_role(UserRole.admin)), db: AsyncSession = Depends(get_db)):
+    cur_report = (await db.execute(select(Report).where(Report.id == report_id))).scalar_one_or_none()
+    if not cur_report:
+        raise HTTPException(status_code=404, detail="Report not found")
+    await db.delete(cur_report)
+    await db.commit()
+    return {"Message": "Report deleted successfully"}

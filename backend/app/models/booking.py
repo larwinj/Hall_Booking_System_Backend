@@ -11,12 +11,12 @@ class Booking(Base):
     end_time: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     status: Mapped[BookingStatus] = mapped_column(Enum(BookingStatus, name="booking_status_enum"), default=BookingStatus.pending, nullable=False)
     total_cost: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
-    rescheduled: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
-    original_start_time: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-    original_end_time: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    rescheduled: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)  # Flag to indicate if rescheduled at least once
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
-    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
+    # Relationships
     room = relationship("Room", back_populates="bookings")
     customers = relationship("BookingCustomer", back_populates="booking", cascade="all, delete-orphan")
     addons = relationship("BookingAddon", back_populates="booking", cascade="all, delete-orphan")
+    reschedule_history = relationship("BookingRescheduleHistory", back_populates="booking", cascade="all, delete-orphan")

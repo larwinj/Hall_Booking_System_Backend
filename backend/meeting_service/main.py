@@ -2,9 +2,20 @@ from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 import threading
 import logging
+import sys
+from pathlib import Path
 
-from .service import router
-from .grpc_server import start_grpc_server
+# Add parent directory to path to support running as script
+if __name__ == "__main__":
+    sys.path.insert(0, str(Path(__file__).parent.parent))
+
+try:
+    from .service import router
+    from .grpc_server import start_grpc_server
+except ImportError:
+    # Fallback for direct script execution
+    from meeting_service.service import router
+    from meeting_service.grpc_server import start_grpc_server
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -27,6 +38,9 @@ async def startup_event():
     logger.info("gRPC server running on port 50051")
     logger.info("FastAPI server running")
 
+
+
+# python meeting_service/main.py :: RUN THIS CMD raa BHAII
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(app, host="0.0.0.0", port=8080)

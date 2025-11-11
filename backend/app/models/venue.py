@@ -1,6 +1,7 @@
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy import String, Integer, Text
 from app.db.base_class import Base
+from app.models.report_cache import ReportCache
 
 class Venue(Base):
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
@@ -15,3 +16,4 @@ class Venue(Base):
     rooms = relationship("Room", back_populates="venue", cascade="all, delete-orphan")
     moderators = relationship("User", back_populates="assigned_venue")
     addons = relationship("Addon", back_populates="venue", cascade="all, delete-orphan")
+    report_caches = relationship("ReportCache", back_populates="venue", cascade="all, delete-orphan")

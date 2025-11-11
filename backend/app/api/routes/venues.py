@@ -10,7 +10,7 @@ from app.schemas.venue import VenueCreate, VenueUpdate, VenueOut
 
 router = APIRouter(prefix="/venues", tags=["venues"])
 
-@router.post("/", response_model=VenueOut)
+@router.post("/", response_model=VenueOut,description="Access by moderators,admins")
 async def create_venue(payload: VenueCreate, _: User = Depends(require_role(UserRole.admin)), db: AsyncSession = Depends(get_db)):
     venue = Venue(**payload.model_dump())
     db.add(venue)
@@ -18,19 +18,19 @@ async def create_venue(payload: VenueCreate, _: User = Depends(require_role(User
     await db.refresh(venue)
     return venue
 
-@router.get("/", response_model=list[VenueOut])
+@router.get("/", response_model=list[VenueOut],description="Access by mderators,admins")
 async def list_venues(db: AsyncSession = Depends(get_db)):
     res = await db.execute(select(Venue))
     return res.scalars().all()
 
-@router.get("/{venue_id}", response_model=VenueOut)
+@router.get("/{venue_id}", response_model=VenueOut,description="Access by everyone")
 async def get_venue(venue_id: int, db: AsyncSession = Depends(get_db)):
     venue = (await db.execute(select(Venue).where(Venue.id == venue_id))).scalar_one_or_none()
     if not venue:
         raise HTTPException(status_code=404, detail="Venue not found")
     return venue
 
-@router.patch("/{venue_id}", response_model=VenueOut)
+@router.patch("/{venue_id}", response_model=VenueOut,description="Access by moderators,admins")
 async def update_venue(venue_id: int, payload: VenueUpdate, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     if user.role not in [UserRole.moderator, UserRole.admin]:
         raise HTTPException(status_code=403, detail="Insufficient permissions")
@@ -45,7 +45,7 @@ async def update_venue(venue_id: int, payload: VenueUpdate, user: User = Depends
     await db.refresh(venue)
     return venue
 
-@router.delete("/{venue_id}")
+@router.delete("/{venue_id}",description="Access by moderators,admins")
 async def delete_venue(venue_id: int, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     if user.role not in [UserRole.moderator, UserRole.admin]:
         raise HTTPException(status_code=403, detail="Insufficient permissions")

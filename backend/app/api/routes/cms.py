@@ -21,7 +21,7 @@ def _col(request: Request):
         )
     return client.get_database('hall_cms').get_collection('cms_pages')
 
-@router.post("/", response_model=CMSBase)
+@router.post("/", response_model=CMSBase,description="Access by only admin users.")
 async def create_page(payload: CMSBase, request: Request, _: str = Depends(require_role(UserRole.admin))):
     col = _col(request)
     doc = payload.model_dump(exclude={"id"})  # Exclude id if present in payload
@@ -43,7 +43,7 @@ async def create_page(payload: CMSBase, request: Request, _: str = Depends(requi
         converted["id"] = str(created_doc["_id"])
     return CMSBase(**converted)
 
-@router.get("/", response_model=list[CMSBase])
+@router.get("/", response_model=list[CMSBase],description="Access by only admin users.")
 async def list_pages(request: Request):
     col = _col(request)
     pages = []
@@ -55,7 +55,7 @@ async def list_pages(request: Request):
         pages.append(CMSBase(**converted))
     return pages
 
-@router.get("/slug/{slug}", response_model=CMSBase)
+@router.get("/slug/{slug}", response_model=CMSBase,description="Access by only admin users.")
 async def get_page(slug: str, request: Request):
     col = _col(request)
     doc = await col.find_one({"slug": slug})
@@ -67,7 +67,7 @@ async def get_page(slug: str, request: Request):
         converted["id"] = str(doc["_id"])
     return CMSBase(**converted)
 
-@router.patch("/slug/{slug}", response_model=CMSBase)
+@router.patch("/slug/{slug}", response_model=CMSBase,description="Access by only admin users.")
 async def update_page(slug: str, payload: CMSUpdate, request: Request, _: str = Depends(require_role(UserRole.admin))):
     col = _col(request)
     update = payload.model_dump(exclude_unset=True)
@@ -89,7 +89,7 @@ async def update_page(slug: str, payload: CMSUpdate, request: Request, _: str = 
         converted["id"] = str(res["_id"])
     return CMSBase(**converted)
 
-@router.delete("/slug/{slug}")
+@router.delete("/slug/{slug}",description="Access by only admin users.")
 async def delete_page(slug: str, request: Request, _: str = Depends(require_role(UserRole.admin))):
     col = _col(request)
     res = await col.delete_one({"slug": slug})

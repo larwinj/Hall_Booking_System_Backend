@@ -14,6 +14,10 @@ class Settings(BaseSettings):
     ALGORITHM: str = "HS256"
 
     BACKEND_CORS_ORIGINS: List[AnyHttpUrl] | List[str] = ["*"]
+    
+    MONGODB_DB_NAME: str = "hall_booking_analytics"
+    
+    BLOB_READ_WRITE_TOKEN: str | None = None
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 

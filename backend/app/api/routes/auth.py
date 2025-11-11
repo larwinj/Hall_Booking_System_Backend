@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from datetime import timedelta
@@ -7,7 +7,7 @@ from app.core.config import get_settings
 from app.core.security import get_password_hash, verify_password, create_token, decode_token
 from app.models.user import User
 from app.models.enums import UserRole
-from app.schemas.user import UserCreate, UserOut, TokenPair, ModeratorRegistration
+from app.schemas.user import UserCreate, UserOut, TokenPair, ModeratorRegistration, LoginRequest
 
 from fastapi.security import OAuth2PasswordRequestForm
 
@@ -16,7 +16,7 @@ from app.api.deps import get_current_user
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
-@router.post("/signup", response_model=UserOut)
+@router.post("/signup", response_model=UserOut,description="Access by everyone")
 async def signup(payload: UserCreate, db: AsyncSession = Depends(get_db)):
     existing = (await db.execute(select(User).where(User.email == payload.email))).scalar_one_or_none()
     if existing:
@@ -27,7 +27,7 @@ async def signup(payload: UserCreate, db: AsyncSession = Depends(get_db)):
     await db.refresh(user)
     return user
 
-@router.post("/register_moderator", response_model=UserOut)
+@router.post("/register_moderator", response_model=UserOut,description="Access by the moderator users.")
 async def register_moderator(payload: ModeratorRegistration, db: AsyncSession = Depends(get_db)):
     existing = (await db.execute(select(User).where(User.email == payload.user.email))).scalar_one_or_none()
     if existing:
@@ -47,8 +47,8 @@ async def register_moderator(payload: ModeratorRegistration, db: AsyncSession = 
     await db.refresh(user)
     return user
 
-@router.post("/login", response_model=TokenPair)
-async def login(form_data: OAuth2PasswordRequestForm = Depends(), db: AsyncSession = Depends(get_db)):
+@router.post("/login", response_model=TokenPair,description="Access by everyone")
+async def login(response: Response,form_data: LoginRequest,db: AsyncSession = Depends(get_db),):
     user = (await db.execute(select(User).where(User.email == form_data.username))).scalar_one_or_none()
     if not user or not verify_password(form_data.password, user.hashed_password):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
@@ -60,7 +60,7 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends(), db: AsyncSessi
         expires_delta=timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES),
         algorithm=settings.ALGORITHM,
         token_type="access",
-        token_version=None,
+        token_version=user.token_version,
     )
     refresh = create_token(
         subject=user.id,
@@ -70,7 +70,42 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends(), db: AsyncSessi
         token_type="refresh",
         token_version=user.token_version,
     )
+
+    access_max_age = settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60
+    refresh_max_age = settings.REFRESH_TOKEN_EXPIRE_DAYS * 24 * 3600
+
+    response.set_cookie(
+        key="access_token",
+        value=access,
+        httponly=True,
+        secure=True,
+        samesite="lax",
+        max_age=access_max_age,
+        expires=access_max_age,
+        path="/",
+    )
+    response.set_cookie(
+        key="refresh_token",
+        value=refresh,
+        httponly=True,
+        secure=True,
+        samesite="lax",
+        max_age=refresh_max_age,
+        expires=refresh_max_age,
+        path="/auth",
+    )
+    response.set_cookie(
+        key="user_role",
+        value=str(user.role),
+        httponly=False,
+        secure=True,
+        samesite="lax",
+        max_age=refresh_max_age,
+        path="/",
+    )
+
     return TokenPair(access_token=access, refresh_token=refresh)
+
 
 @router.post("/refresh", response_model=TokenPair)
 async def refresh_token(refresh_token: str, db: AsyncSession = Depends(get_db)):
@@ -90,6 +125,7 @@ async def refresh_token(refresh_token: str, db: AsyncSession = Depends(get_db)):
             expires_delta=timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES),
             algorithm=settings.ALGORITHM,
             token_type="access",
+            token_version=user.token_version,
         )
         new_refresh = create_token(
             subject=user.id,
@@ -103,9 +139,45 @@ async def refresh_token(refresh_token: str, db: AsyncSession = Depends(get_db)):
     except Exception:
         raise HTTPException(status_code=401, detail="Invalid refresh token")
 
-@router.post("/logout")
-async def logout(user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
-    # Secure: Only the authenticated user can invalidate their own tokens
+@router.post("/logout",description="Access by everyone")
+async def logout(
+    response: Response,
+    user: User = Depends(get_current_user), 
+    db: AsyncSession = Depends(get_db)
+):
     user.token_version += 1
     await db.commit()
-    return {"success": True, "message": "Logged out"}
+    
+    # Clear all cookies
+    response.set_cookie(
+        key="access_token",
+        value="",
+        httponly=True,
+        secure=True,
+        samesite="lax",
+        max_age=0,
+        expires=0,
+        path="/",
+    )
+    response.set_cookie(
+        key="refresh_token",
+        value="",
+        httponly=True,
+        secure=True,
+        samesite="lax",
+        max_age=0,
+        expires=0,
+        path="/auth",
+    )
+    response.set_cookie(
+        key="user_role",
+        value="",
+        httponly=False,
+        secure=True,
+        samesite="lax",
+        max_age=0,
+        expires=0,
+        path="/",
+    )
+    
+    return {"success": True, "message": "Logged out successfully"}

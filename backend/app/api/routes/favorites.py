@@ -8,7 +8,7 @@ from app.schemas.favorite import FavoriteCreate, FavoriteOut
 
 router = APIRouter(prefix="/favorites", tags=["favorites"])
 
-@router.post("/", response_model=FavoriteOut)
+@router.post("/", response_model=FavoriteOut,description="Access by customers")
 async def add_favorite(payload: FavoriteCreate, user=Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     existing = (await db.execute(select(Favorite).where(Favorite.user_id == user.id, Favorite.room_id == payload.room_id))).scalar_one_or_none()
     if existing:
@@ -19,12 +19,12 @@ async def add_favorite(payload: FavoriteCreate, user=Depends(get_current_user), 
     await db.refresh(fav)
     return fav
 
-@router.get("/", response_model=list[FavoriteOut])
+@router.get("/", response_model=list[FavoriteOut],description="Access by customers")
 async def list_favorites(user=Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     res = await db.execute(select(Favorite).where(Favorite.user_id == user.id))
     return res.scalars().all()
 
-@router.delete("/{favorite_id}")
+@router.delete("/{favorite_id}",description="Access by customers")
 async def remove_favorite(favorite_id: int, user=Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     fav = (await db.execute(select(Favorite).where(Favorite.id == favorite_id, Favorite.user_id == user.id))).scalar_one_or_none()
     if not fav:
