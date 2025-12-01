@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { background: #2E86AB; color: white; padding: 20px; text-align: center; }
+        .content { padding: 20px; background: #f9f9f9; }
+        .booking-details { background: white; padding: 15px; border-radius: 5px; margin: 15px 0; }
+        .footer { text-align: center; padding: 20px; font-size: 12px; color: #666; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Booking Confirmed! 🎉</h1>
+        </div>
+        <div class="content">
+            <p>Dear {{ customer_name }},</p>
+            <p>Your booking has been successfully confirmed. Here are your booking details:</p>
+            
+            <div class="booking-details">
+                <h3>Booking Details</h3>
+                <p><strong>Booking ID:</strong> #{{ booking_id }}</p>
+                <p><strong>Venue:</strong> {{ venue_name }}</p>
+                <p><strong>Room:</strong> {{ room_name }}</p>
+                <p><strong>Date & Time:</strong> {{ start_time }} to {{ end_time }}</p>
+                <p><strong>Total Amount:</strong> ₹{{ total_cost }}</p>
+                <p><strong>Status:</strong> {{ status }}</p>
+            </div>
+
+            <p>We look forward to hosting your event!</p>
+            <p>If you have any questions, please contact our support team.</p>
+        </div>
+        <div class="footer">
+            <p>Thank you for choosing our services!</p>
+            <p>© 2024 Hall Booking System. All rights reserved.</p>
+        </div>
+    </div>
+</body>
+</html>

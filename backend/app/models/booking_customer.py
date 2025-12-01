@@ -1,4 +1,3 @@
-# app/models/booking_customer.py
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy import Integer, ForeignKey, String, Index
 from app.db.base_class import Base
@@ -9,6 +8,7 @@ class BookingCustomer(Base):
     user_id: Mapped[int | None] = mapped_column(ForeignKey("user.id", ondelete="CASCADE"), index=True, nullable=True)
     first_name: Mapped[str] = mapped_column(String(100), nullable=False)
     last_name: Mapped[str] = mapped_column(String(100), nullable=False)
+    email: Mapped[str] = mapped_column(String(255),  nullable=True) 
     address: Mapped[str] = mapped_column(String(512), nullable=False)
     phone: Mapped[str] = mapped_column(String(50), nullable=False)
 

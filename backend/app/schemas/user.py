@@ -80,3 +80,49 @@ class LoginRequest(BaseModel):
         max_length=64,
         description="User's password (min 8 characters, must include letters and numbers)",
     )
+
+
+class ForgotPasswordRequest(BaseModel):
+    email: EmailStr = Field(..., description="User's email address")
+    new_password: str = Field(
+        ...,
+        min_length=8,
+        max_length=64,
+        description="New password (8-64 characters with letters, numbers, and special characters)",
+    )
+    confirm_password: str = Field(
+        ...,
+        min_length=8,
+        max_length=64,
+        description="Confirm new password",
+    )
+
+    @field_validator("new_password")
+    def strong_password(cls, v: str) -> str:
+        """Ensure password contains both letters and numbers and is not too weak."""
+        if len(v) < 8:
+            raise ValueError("Password must be at least 8 characters long")
+
+        if "password" in v.lower():
+            raise ValueError("Password cannot contain the word 'password'")
+
+        if not any(c.islower() for c in v):
+            raise ValueError("Password must contain at least one lowercase letter")
+
+        if not any(c.isupper() for c in v):
+            raise ValueError("Password must contain at least one uppercase letter")
+
+        if not any(c.isdigit() for c in v):
+            raise ValueError("Password must contain at least one number")
+
+        if not any(c in "!@#$%^&*()-_=+[]{}|;:',.<>?/`~" for c in v):
+            raise ValueError("Password must contain at least one special character")
+
+        return v
+
+    @field_validator("confirm_password")
+    def passwords_match(cls, v: str, info) -> str:
+        """Ensure password and confirm password match."""
+        if 'new_password' in info.data and v != info.data['new_password']:
+            raise ValueError("Passwords do not match")
+        return v

@@ -7,7 +7,7 @@ from app.core.config import get_settings
 from app.core.security import get_password_hash, verify_password, create_token, decode_token
 from app.models.user import User
 from app.models.enums import UserRole
-from app.schemas.user import UserCreate, UserOut, TokenPair, ModeratorRegistration, LoginRequest
+from app.schemas.user import ForgotPasswordRequest, UserCreate, UserOut, TokenPair, ModeratorRegistration, LoginRequest
 
 from fastapi.security import OAuth2PasswordRequestForm
 
@@ -61,6 +61,8 @@ async def login(response: Response,form_data: LoginRequest,db: AsyncSession = De
         algorithm=settings.ALGORITHM,
         token_type="access",
         token_version=user.token_version,
+        role=user.role.value,
+        assigned_venue_id=user.assigned_venue_id,
     )
     refresh = create_token(
         subject=user.id,
@@ -96,7 +98,7 @@ async def login(response: Response,form_data: LoginRequest,db: AsyncSession = De
     )
     response.set_cookie(
         key="user_role",
-        value=str(user.role),
+        value=user.role.value,
         httponly=False,
         secure=True,
         samesite="lax",
@@ -126,6 +128,8 @@ async def refresh_token(refresh_token: str, db: AsyncSession = Depends(get_db)):
             algorithm=settings.ALGORITHM,
             token_type="access",
             token_version=user.token_version,
+            role=user.role.value,
+            assigned_venue_id=user.assigned_venue_id,
         )
         new_refresh = create_token(
             subject=user.id,
@@ -181,3 +185,28 @@ async def logout(
     )
     
     return {"success": True, "message": "Logged out successfully"}
+
+@router.post("/forgot-password", description="Access by everyone - Reset user password")
+async def forgot_password(
+    payload: ForgotPasswordRequest,
+    db: AsyncSession = Depends(get_db)
+):
+    # Find user by email
+    user = (await db.execute(select(User).where(User.email == payload.email))).scalar_one_or_none()
+    
+    if not user:
+        return {
+            "success": True,
+            "message": "If the email exists, password has been reset successfully"
+        }
+    
+    # Update user password
+    user.hashed_password = get_password_hash(payload.new_password)
+    user.token_version += 1  
+    
+    await db.commit()
+    
+    return {
+        "success": True,
+        "message": "Password has been reset successfully"
+    }

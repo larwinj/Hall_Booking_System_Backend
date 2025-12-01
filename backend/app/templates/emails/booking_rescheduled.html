@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { background: #FFA500; color: white; padding: 20px; text-align: center; }
+        .content { padding: 20px; background: #f9f9f9; }
+        .booking-details { background: white; padding: 15px; border-radius: 5px; margin: 15px 0; }
+        .changes { background: #fff3cd; padding: 15px; border-left: 4px solid #ffc107; }
+        .footer { text-align: center; padding: 20px; font-size: 12px; color: #666; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Booking Rescheduled 🔄</h1>
+        </div>
+        <div class="content">
+            <p>Dear {{ customer_name }},</p>
+            <p>Your booking has been successfully rescheduled. Here are the updated details:</p>
+            
+            <div class="booking-details">
+                <h3>Updated Booking Details</h3>
+                <p><strong>Booking ID:</strong> #{{ booking_id }}</p>
+                <p><strong>Venue:</strong> {{ venue_name }}</p>
+                <p><strong>Room:</strong> {{ room_name }}</p>
+                <p><strong>New Date & Time:</strong> {{ start_time }} to {{ end_time }}</p>
+                <p><strong>Total Amount:</strong> ₹{{ total_cost }}</p>
+            </div>
+
+            {% if original_start_time %}
+            <div class="changes">
+                <h4>Previous Booking Details</h4>
+                <p><strong>Original Date & Time:</strong> {{ original_start_time }} to {{ original_end_time }}</p>
+                {% if price_difference != 0 %}
+                <p><strong>Amount Adjustment:</strong> ₹{{ price_difference|abs }} {{ "refunded" if price_difference < 0 else "added" }}</p>
+                {% endif %}
+            </div>
+            {% endif %}
+
+            <p>If you have any questions about these changes, please contact our support team.</p>
+        </div>
+        <div class="footer">
+            <p>Thank you for choosing our services!</p>
+            <p>© 2024 Hall Booking System. All rights reserved.</p>
+        </div>
+    </div>
+</body>
+</html>

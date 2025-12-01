@@ -1,4 +1,5 @@
-from fastapi import APIRouter, Depends, HTTPException
+from datetime import date
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, delete, update
 from app.db.session import get_db
@@ -6,7 +7,8 @@ from app.api.deps import get_current_user, require_role
 from app.models.enums import UserRole
 from app.models.venue import Venue
 from app.models.user import User
-from app.schemas.venue import VenueCreate, VenueUpdate, VenueOut
+from app.schemas.venue import VenueCreate, VenueRangeReport, VenueUpdate, VenueOut
+from app.services.venue_report_service import VenueReportService
 
 router = APIRouter(prefix="/venues", tags=["venues"])
 
@@ -38,7 +40,10 @@ async def update_venue(venue_id: int, payload: VenueUpdate, user: User = Depends
     if not venue:
         raise HTTPException(status_code=404, detail="Venue not found")
     if user.role == UserRole.moderator and user.assigned_venue_id != venue_id:
-        raise HTTPException(status_code=403, detail="Cannot update venue outside assigned venue")
+        raise HTTPException(
+            status_code=403, 
+            detail=f"Cannot update venue outside assigned venue. Assigned: {user.assigned_venue_id}, Target: {venue_id}"
+        )
     for k, v in payload.model_dump(exclude_unset=True).items():
         setattr(venue, k, v)
     await db.commit()
@@ -53,7 +58,30 @@ async def delete_venue(venue_id: int, user: User = Depends(get_current_user), db
     if not venue:
         raise HTTPException(status_code=404, detail="Venue not found")
     if user.role == UserRole.moderator and user.assigned_venue_id != venue_id:
-        raise HTTPException(status_code=403, detail="Cannot delete venue outside assigned venue")
+        raise HTTPException(
+            status_code=403, 
+            detail=f"Cannot delete venue outside assigned venue. Assigned: {user.assigned_venue_id}, Target: {venue_id}"
+        )
     await db.delete(venue)
     await db.commit()
     return {"success": True}
+
+
+@router.get("/{venue_id}/range-report", response_model=VenueRangeReport, description="Access by admins only")
+async def venue_with_range_report(
+    venue_id: int,
+    start_date: date = Query(..., description="Start date (YYYY-MM-DD)"),
+    end_date: date = Query(..., description="End date (YYYY-MM-DD)"),
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_role(UserRole.admin))
+):
+    """
+    Get comprehensive booking report for a venue within a specific date range
+    """
+    try:
+        report = await VenueReportService.get_venue_range_report(db, venue_id, start_date, end_date)
+        return VenueRangeReport(**report)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error generating report: {str(e)}")

@@ -12,7 +12,7 @@ def get_password_hash(password: str) -> str:
 def verify_password(plain: str, hashed: str) -> bool:
     return pwd_context.verify(plain, hashed)
 
-def create_token(*, subject: str | int, secret: str, expires_delta: timedelta, algorithm: str, token_type: str, token_version: int) -> str:
+def create_token(*, subject: str | int, secret: str, expires_delta: timedelta, algorithm: str, token_type: str, token_version: int, role: str | None = None, assigned_venue_id: int | None = None) -> str:
     now = datetime.now(timezone.utc)
     to_encode: dict[str, Any] = {
         "sub": str(subject),
@@ -21,6 +21,10 @@ def create_token(*, subject: str | int, secret: str, expires_delta: timedelta, a
         "type": token_type,
         "ver": token_version,
     }
+    if role:
+        to_encode["role"] = role
+    if assigned_venue_id:
+        to_encode["assigned_venue_id"] = assigned_venue_id
     print("Token Generated..!!!")
     return jwt.encode(to_encode, secret, algorithm=algorithm)
 

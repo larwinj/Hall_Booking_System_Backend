@@ -1,5 +1,5 @@
 # app/api/routes/rooms.py
-from fastapi import APIRouter, Depends, HTTPException, File, UploadFile, Form
+from fastapi import APIRouter, Depends, HTTPException, File, UploadFile, Form, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from app.db.session import get_db
@@ -14,21 +14,28 @@ from typing import List, Optional
 
 router = APIRouter(prefix="/rooms", tags=["rooms"])
 
+async def extract_form_list(request: Request, field_name: str) -> List[str]:
+    """Helper to extract multiple form field values with the same name"""
+    try:
+        form = await request.form()
+        values = form.getlist(field_name)
+        return [v.strip() for v in values if isinstance(v, str) and v.strip()]
+    except Exception:
+        return []
+
 @router.post("/", response_model=RoomOut, description="Access by moderators,admins")
 async def create_room(
+    request: Request,
     venue_id: int = Form(..., ge=1),
     name: str = Form(..., min_length=3, max_length=100),
     capacity: int = Form(..., ge=1, le=1000),
     rate_per_hour: float = Form(..., gt=0),
-    type: Optional[str] = Form("standard"),
-    amenities: List[str] = Form(default_factory=list),
+    type: Optional[str] = Form(None),
     description: Optional[str] = Form(None, max_length=500),
-
     addons: Optional[List[str]] = Form(
         None,
         description='List of addon JSON objects. Example item: {"name":"DJ & Dance Floor Setup","description":"...","price":5000}'
     ),
-
     images: List[UploadFile] = File(default_factory=list),
     user=Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
@@ -36,12 +43,16 @@ async def create_room(
     if user.role not in [UserRole.moderator, UserRole.admin]:
         raise HTTPException(status_code=403, detail="Insufficient permissions")
     if user.role == UserRole.moderator and user.assigned_venue_id != venue_id:
-        raise HTTPException(status_code=403, detail="Cannot create room outside assigned venue")
+        raise HTTPException(
+            status_code=403, 
+            detail=f"Cannot create room outside assigned venue. Assigned: {user.assigned_venue_id}, Target: {venue_id}"
+        )
 
+    # Extract amenities from FormData (handles multiple values with same field name)
+    amenities_list = await extract_form_list(request, "amenities")
+    
     # Validate amenities
-    cleaned_amenities = [item.strip() for item in amenities if item.strip()]
-    if len(cleaned_amenities) != len(amenities):
-        raise HTTPException(400, "Amenities cannot contain empty or blank entries")
+    cleaned_amenities = [item.strip() for item in amenities_list if item.strip()]
 
     # Validate images
     if len(images) > 4:
@@ -62,9 +73,9 @@ async def create_room(
         name=name,
         capacity=capacity,
         rate_per_hour=rate_per_hour,
-        type=type or "Party Hall",
+        type=type if type else "Party Hall",
         amenities=cleaned_amenities,
-        description=description,
+        description=description if description else "",
         room_images=room_images,
     )
     db.add(room)
@@ -113,23 +124,26 @@ async def get_room(room_id: int, db: AsyncSession = Depends(get_db)):
 
 @router.patch("/{room_id}", response_model=RoomOut, description="Access by moderators,admins")
 async def update_room(
-    room_id: int, 
+    room_id: int,
+    request: Request,
     name: str | None = Form(None, min_length=3, max_length=100),
     capacity: int | None = Form(None, ge=1, le=1000),
     rate_per_hour: float | None = Form(None, gt=0),
     type: str | None = Form(None),
-    amenities: List[str] | None = Form(None),
     description: str | None = Form(None, max_length=500),
     addons: List[dict] | None = Form(None),
     images: List[UploadFile] | None = File(None),
     user=Depends(get_current_user), 
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
 ):
     room = (await db.execute(select(Room).where(Room.id == room_id))).scalar_one_or_none()
     if not room:
         raise HTTPException(status_code=404, detail="Room not found")
     if user.role == UserRole.moderator and user.assigned_venue_id != room.venue_id:
-        raise HTTPException(status_code=403, detail="Cannot update room outside assigned venue")
+        raise HTTPException(
+            status_code=403, 
+            detail=f"Cannot update room outside assigned venue. Assigned: {user.assigned_venue_id}, Target: {room.venue_id}"
+        )
     
     # Update other fields if provided
     if name is not None:
@@ -140,13 +154,15 @@ async def update_room(
         room.rate_per_hour = rate_per_hour
     if type is not None:
         room.type = type
-    if amenities is not None:
-        cleaned_amenities = [item.strip() for item in amenities if item.strip()]
-        if len(cleaned_amenities) != len(amenities):
-            raise HTTPException(400, "Amenities cannot contain empty or blank entries")
+    
+    # Extract amenities from FormData if provided
+    amenities_list = await extract_form_list(request, "amenities")
+    if amenities_list:  # Only update if amenities were provided
+        cleaned_amenities = [item.strip() for item in amenities_list if item.strip()]
         room.amenities = cleaned_amenities
+    
     if description is not None:
-        room.description = description
+        room.description = description if description else ""
     
     # Process new images if provided (replace existing)
     if images is not None and len(images) > 0:
@@ -174,11 +190,19 @@ async def update_room(
 
 @router.delete("/{room_id}", description="Access by moderators,admins")
 async def delete_room(room_id: int, user=Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    if user.role not in [UserRole.moderator, UserRole.admin]:
+        raise HTTPException(status_code=403, detail="Insufficient permissions")
+    
     room = (await db.execute(select(Room).where(Room.id == room_id))).scalar_one_or_none()
     if not room:
         raise HTTPException(status_code=404, detail="Room not found")
     if user.role == UserRole.moderator and user.assigned_venue_id != room.venue_id:
-        raise HTTPException(status_code=403, detail="Cannot delete room outside assigned venue")
+        raise HTTPException(
+            status_code=403, 
+            detail=f"Cannot delete room outside assigned venue. Assigned: {user.assigned_venue_id}, Target: {room.venue_id}"
+        )
+    
+    # Delete the room
     await db.delete(room)
     await db.commit()
     return {"success": True}

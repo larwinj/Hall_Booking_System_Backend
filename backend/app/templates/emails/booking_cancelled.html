@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { background: #DC3545; color: white; padding: 20px; text-align: center; }
+        .content { padding: 20px; background: #f9f9f9; }
+        .booking-details { background: white; padding: 15px; border-radius: 5px; margin: 15px 0; }
+        .refund-info { background: #d4edda; padding: 15px; border-left: 4px solid #28a745; }
+        .footer { text-align: center; padding: 20px; font-size: 12px; color: #666; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Booking Cancelled ❌</h1>
+        </div>
+        <div class="content">
+            <p>Dear {{ customer_name }},</p>
+            <p>Your booking has been cancelled as requested. Here are the details:</p>
+            
+            <div class="booking-details">
+                <h3>Cancelled Booking Details</h3>
+                <p><strong>Booking ID:</strong> #{{ booking_id }}</p>
+                <p><strong>Venue:</strong> {{ venue_name }}</p>
+                <p><strong>Room:</strong> {{ room_name }}</p>
+                <p><strong>Date & Time:</strong> {{ start_time }} to {{ end_time }}</p>
+                <p><strong>Cancellation Reason:</strong> {{ reason or "Not specified" }}</p>
+            </div>
+
+            {% if refund_amount > 0 %}
+            <div class="refund-info">
+                <h4>Refund Information</h4>
+                <p><strong>Refund Amount:</strong> ₹{{ refund_amount }}</p>
+                <p><strong>Refund Policy:</strong> {{ refund_policy }}</p>
+                <p>The refund has been processed and will be credited to your wallet.</p>
+            </div>
+            {% endif %}
+
+            <p>We're sorry to see you go! If you'd like to book again in the future, we'd be happy to have you.</p>
+        </div>
+        <div class="footer">
+            <p>Thank you for considering our services!</p>
+            <p>© 2024 Hall Booking System. All rights reserved.</p>
+        </div>
+    </div>
+</body>
+</html>

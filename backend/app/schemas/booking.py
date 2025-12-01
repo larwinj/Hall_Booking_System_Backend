@@ -1,6 +1,5 @@
-# app/schemas/booking.py
-from pydantic import BaseModel, Field, field_validator
-from datetime import datetime, timezone
+from pydantic import BaseModel, EmailStr, Field, field_validator, validator
+from datetime import date, datetime, timezone
 from typing import List, Optional
 
 import datetime as dt
@@ -9,8 +8,19 @@ class CustomerCreate(BaseModel):
     user_id: int | None = Field(None, description="Optional ID of registered user")
     first_name: str = Field(..., min_length=1, max_length=100, description="Customer's first name")
     last_name: str = Field(..., min_length=1, max_length=100, description="Customer's last name")
+    email: EmailStr = Field(..., description="Customer's email address")
     address: str = Field(..., min_length=5, max_length=512, description="Customer's address")
     phone: str = Field(..., min_length=10, max_length=50, description="Customer's phone number")
+
+    @validator("phone")
+    def validate_phone(cls, value):
+        if not value.isdigit():
+            raise ValueError("Phone number must contain only digits.")
+        if not value.startswith(("6", "7", "8", "9")):
+            raise ValueError("Invalid MobileNumber")
+        if len(value) != 10:
+            raise ValueError("Phone number must be exactly 10 digits long.")
+        return value
 
 class BookingAddonItem(BaseModel):
     addon_id: int = Field(
@@ -177,3 +187,14 @@ class BookingCancel(BaseModel):
         if v and not v.strip():
             raise ValueError("Cancellation reason cannot be only whitespace.")
         return v
+    
+class RoomBookingsResponse(BaseModel):
+    room_id: int = Field(..., description="Room ID")
+    room_name: str = Field(..., description="Room name")
+    start_date: date = Field(..., description="Start date of the period")
+    end_date: date = Field(..., description="End date of the period")
+    total_bookings: int = Field(..., description="Total number of bookings in the period")
+    bookings: List[BookingOut] = Field(..., description="List of bookings")
+
+    class Config:
+        from_attributes = True
