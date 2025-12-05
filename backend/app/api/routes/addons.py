@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, and_
 from app.db.session import get_db
 from app.api.deps import get_current_user
 from app.models.enums import UserRole
@@ -35,6 +35,32 @@ async def create_addon(payload: AddonCreate, user: User = Depends(get_current_us
 async def list_addons(db: AsyncSession = Depends(get_db)):
     res = await db.execute(select(Addon))
     return res.scalars().all()
+
+@router.get("/by-room/{room_id}", response_model=list[AddonOut], description="Access by customers,moderators,admins - Get addons for a specific room")
+async def get_addons_by_room(room_id: int, db: AsyncSession = Depends(get_db)):
+    """
+    Get all addons for a specific room.
+    Returns addons where room_id matches OR room_id is NULL (venue-level addons).
+    """
+    from sqlalchemy import or_
+    
+    # Verify room exists
+    room = (await db.execute(select(Room).where(Room.id == room_id))).scalar_one_or_none()
+    if not room:
+        raise HTTPException(status_code=404, detail="Room not found")
+    
+    # Get room-specific addons AND venue-level addons (room_id is NULL)
+    stmt = select(Addon).where(
+        and_(
+            Addon.venue_id == room.venue_id,
+            or_(
+                Addon.room_id == room_id,
+                Addon.room_id.is_(None)
+            )
+        )
+    )
+    result = await db.execute(stmt)
+    return result.scalars().all()
 
 @router.patch("/{addon_id}", response_model=AddonOut,description="Access by moderators,admins")
 async def update_addon(addon_id: int, payload: AddonUpdate, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):

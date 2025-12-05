@@ -1,7 +1,7 @@
-# app/api/routes/rooms.py
 from fastapi import APIRouter, Depends, HTTPException, File, UploadFile, Form, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from sqlalchemy.orm import joinedload
 from app.db.session import get_db
 from app.api.deps import get_current_user
 from app.models.enums import UserRole
@@ -11,6 +11,8 @@ from app.schemas.room import RoomAddonCreate, RoomOut
 from pydantic import ValidationError
 import base64, json
 from typing import List, Optional
+from datetime import datetime, timezone
+from app.services.booking import has_conflict
 
 router = APIRouter(prefix="/rooms", tags=["rooms"])
 
@@ -103,7 +105,7 @@ async def create_room(
 
 @router.get("/", response_model=list[RoomOut], description="Access by everyone")
 async def list_rooms(venue_id: int | None = None, db: AsyncSession = Depends(get_db)):
-    stmt = select(Room)
+    stmt = select(Room).options(joinedload(Room.venue))
     if venue_id:
         stmt = stmt.where(Room.venue_id == venue_id)
     res = await db.execute(stmt)
@@ -111,13 +113,13 @@ async def list_rooms(venue_id: int | None = None, db: AsyncSession = Depends(get
 
 @router.get("/getAll", response_model=list[RoomOut], description="Access by everyone")
 async def get_all_rooms(db: AsyncSession = Depends(get_db)):
-    res = await db.execute(select(Room))
+    res = await db.execute(select(Room).options(joinedload(Room.venue)))
     rooms = res.scalars().all()
     return rooms
 
 @router.get("/{room_id}", response_model=RoomOut, description="Access by everyone")
 async def get_room(room_id: int, db: AsyncSession = Depends(get_db)):
-    room = (await db.execute(select(Room).where(Room.id == room_id))).scalar_one_or_none()
+    room = (await db.execute(select(Room).options(joinedload(Room.venue)).where(Room.id == room_id))).scalar_one_or_none()
     if not room:
         raise HTTPException(status_code=404, detail="Room not found")
     return room
@@ -187,6 +189,77 @@ async def update_room(
     await db.commit()
     await db.refresh(room)
     return room
+
+@router.post("/{room_id}/check-availability", description="Check if room is available for booking")
+async def check_room_availability(
+    room_id: int,
+    request_body: dict,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Check if a room is available for booking at the specified date and time.
+    Returns availability status and conflicting bookings if any.
+    Expects JSON body: {"date": "YYYY-MM-DD", "start_time": "HH:MM", "end_time": "HH:MM"}
+    """
+    
+    # Extract parameters from request body
+    date = request_body.get('date')
+    start_time = request_body.get('start_time')
+    end_time = request_body.get('end_time')
+    
+    if not date or not start_time or not end_time:
+        return {
+            "available": False,
+            "error": "Missing required fields: date, start_time, end_time"
+        }
+    
+    # Parse and validate inputs
+    try:
+        # Parse date (YYYY-MM-DD)
+        date_obj = datetime.strptime(date, "%Y-%m-%d").date()
+        
+        # Parse times (HH:MM)
+        start_time_obj = datetime.strptime(start_time, "%H:%M").time()
+        end_time_obj = datetime.strptime(end_time, "%H:%M").time()
+        
+        # Combine to full datetimes
+        full_start = datetime.combine(date_obj, start_time_obj, tzinfo=timezone.utc)
+        full_end = datetime.combine(date_obj, end_time_obj, tzinfo=timezone.utc)
+        
+        if full_end <= full_start:
+            return {
+                "available": False,
+                "error": "End time must be after start time"
+            }
+    except ValueError as e:
+        return {
+            "available": False,
+            "error": f"Invalid date/time format: {str(e)}"
+        }
+    
+    # Verify room exists
+    room = (await db.execute(select(Room).where(Room.id == room_id))).scalar_one_or_none()
+    if not room:
+        raise HTTPException(status_code=404, detail="Room not found")
+    
+    # Check for conflicts
+    has_collision = await has_conflict(db, room_id, full_start, full_end)
+    
+    if has_collision:
+        return {
+            "available": False,
+            "message": "This time slot is already booked. Please choose a different time.",
+            "conflicting_period": {
+                "date": date,
+                "start_time": start_time,
+                "end_time": end_time
+            }
+        }
+    
+    return {
+        "available": True,
+        "message": "Room is available for booking"
+    }
 
 @router.delete("/{room_id}", description="Access by moderators,admins")
 async def delete_room(room_id: int, user=Depends(get_current_user), db: AsyncSession = Depends(get_db)):

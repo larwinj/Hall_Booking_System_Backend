@@ -1,1 +1,0 @@
-{"asctime": "2025-11-25 00:34:23,175", "levelname": "INFO", "name": "app.main", "message": "Application shutdown event triggered.", "request_id": null, "method": null, "path": null, "query": null, "status_code": null, "duration_ms": null, "client_ip": null, "user_agent": null, "user_id": null}

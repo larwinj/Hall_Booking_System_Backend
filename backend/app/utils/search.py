@@ -1,5 +1,5 @@
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, and_
+from sqlalchemy import select, func, and_, or_
 from sqlalchemy.orm import joinedload
 from typing import List
 from datetime import datetime, date, timezone
@@ -12,6 +12,7 @@ async def search_rooms(
     db: AsyncSession,
     *,
     city: str | None,
+    venue_name: str | None,
     date: date | None,
     start_time: str | None,
     end_time: str | None,
@@ -37,9 +38,27 @@ async def search_rooms(
     elif date or start_time or end_time:
         raise ValueError("Date, start_time, and end_time must all be provided together")
 
-    stmt = select(Room).join(Venue, Room.venue_id == Venue.id)
-    if city:
+    stmt = select(Room).options(joinedload(Room.venue)).join(Venue, Room.venue_id == Venue.id)
+    
+    # Apply city OR venue_name OR room_name filter
+    if city and venue_name:
+        # If both are provided (same value from frontend), search city OR venue name OR room name
+        stmt = stmt.where(
+            or_(
+                func.lower(Venue.city).like(f"%{city.lower()}%"),
+                func.lower(Venue.name).like(f"%{venue_name.lower()}%"),
+                func.lower(Room.name).like(f"%{venue_name.lower()}%")
+            )
+        )
+    elif city:
         stmt = stmt.where(func.lower(Venue.city) == func.lower(city))
+    elif venue_name:
+        stmt = stmt.where(
+            or_(
+                func.lower(Venue.name).like(f"%{venue_name.lower()}%"),
+                func.lower(Room.name).like(f"%{venue_name.lower()}%")
+            )
+        )
     if capacity:
         stmt = stmt.where(Room.capacity >= capacity)
     if room_type:
@@ -59,12 +78,29 @@ async def search_rooms(
 
     rooms = (await db.execute(stmt)).scalars().all()
 
-    if len(rooms) >= fallback_min_results or not city:
+    if len(rooms) >= fallback_min_results or not (city or venue_name):
         return rooms
 
-    stmt_fb = select(Room).join(Venue, Room.venue_id == Venue.id)
-    if city:
+    stmt_fb = select(Room).options(joinedload(Room.venue)).join(Venue, Room.venue_id == Venue.id)
+    
+    # Apply city OR venue_name OR room_name filter for fallback
+    if city and venue_name:
+        stmt_fb = stmt_fb.where(
+            or_(
+                func.lower(Venue.city).like(f"%{city.lower()}%"),
+                func.lower(Venue.name).like(f"%{venue_name.lower()}%"),
+                func.lower(Room.name).like(f"%{venue_name.lower()}%")
+            )
+        )
+    elif city:
         stmt_fb = stmt_fb.where(func.lower(Venue.city).like(f"%{city.lower()}%"))
+    elif venue_name:
+        stmt_fb = stmt_fb.where(
+            or_(
+                func.lower(Venue.name).like(f"%{venue_name.lower()}%"),
+                func.lower(Room.name).like(f"%{venue_name.lower()}%")
+            )
+        )
     if capacity:
         stmt_fb = stmt_fb.where(Room.capacity >= max(1, int(capacity * 0.8)))
     if room_type:

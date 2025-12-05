@@ -12,9 +12,10 @@ from app.services.availability_service import AvailabilityService
 router = APIRouter(prefix="/search", tags=["search"])
 
 
-@router.get("/rooms", response_model=List[RoomOut], description="Access by everyone - Search available rooms by city, capacity, room type, and optional date/time slot")
+@router.get("/rooms", response_model=List[RoomOut], description="Access by everyone - Search available rooms by city, venue name, capacity, room type, and optional date/time slot")
 async def search_rooms_api(
     city: str | None = None,
+    venue_name: str | None = None,
     date: date | None = None,
     start_time: str | None = None,  # HH:MM format
     end_time: str | None = None,    # HH:MM format
@@ -27,7 +28,8 @@ async def search_rooms_api(
     
     rooms = await search_rooms(
         db, 
-        city=city, 
+        city=city,
+        venue_name=venue_name,
         date=date,
         start_time=start_time,
         end_time=end_time,

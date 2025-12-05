@@ -78,7 +78,7 @@ async def create_booking(payload: BookingCreate, user=Depends(get_current_user),
 
 @router.get("/me", response_model=list[BookingOut],description="Access by customers")
 async def my_bookings(user=Depends(get_current_user), db: AsyncSession = Depends(get_db)):
-    stmt = select(Booking).join(BookingCustomer).where(BookingCustomer.user_id == user.id)
+    stmt = select(Booking).join(BookingCustomer).where(BookingCustomer.user_id == user.id).order_by(Booking.created_at.desc())
     res = await db.execute(stmt)
     return res.scalars().all()
 

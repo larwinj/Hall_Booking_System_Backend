@@ -1,6 +1,6 @@
 # app/models/room.py
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-from sqlalchemy import String, Integer, ForeignKey, Float, ARRAY, Text, JSON
+from sqlalchemy import String, Integer, ForeignKey, Float, ARRAY, Text, JSON, Boolean
 from app.db.base_class import Base
 
 class Room(Base):
@@ -17,7 +17,12 @@ class Room(Base):
     
     # New field for storing room images as JSON (list of base64 strings)
     room_images: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
+    status: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default="true")
 
     venue = relationship("Venue", back_populates="rooms")
     addons = relationship("Addon", back_populates="room", cascade="all, delete-orphan")
     bookings = relationship("Booking", back_populates="room", cascade="all, delete-orphan")
+
+    @property
+    def venue_name(self):
+        return self.venue.name if self.venue else None

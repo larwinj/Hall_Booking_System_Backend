@@ -27,6 +27,10 @@ class RoomBase(BaseModel):
         max_length=500,
         description="Optional detailed description of the room"
     )
+    status: bool = Field(
+        default=True,
+        description="Room availability status (True=Available for booking, False=Not Available)"
+    )
 
     @field_validator("amenities")
     def no_empty_amenities(cls, v: List[str]) -> List[str]:
@@ -59,6 +63,7 @@ class RoomCreate(BaseModel):
         default_factory=list,
         description="List of addons available for this room"
     )
+    status: bool = Field(default=True, description="Room availability status (True=Available, False=Not Available).")
 
     @field_validator("amenities")
     def no_empty_amenities(cls, v: List[str]) -> List[str]:
@@ -76,6 +81,7 @@ class RoomUpdate(BaseModel):
     amenities: List[str] | None = Field(None, description="Updated amenities list")
     description: str | None = Field(None, max_length=500, description="Updated room description")
     addons: List[RoomAddonCreate] | None = Field(None, description="Updated list of addons")
+    status: bool | None = Field(None, description="Room availability status (True=Available, False=Not Available).")
 
     @field_validator("amenities")
     def validate_amenities(cls, v):
@@ -87,6 +93,7 @@ class RoomUpdate(BaseModel):
 
 class RoomOut(RoomBase):
     id: int = Field(..., ge=1, description="Unique ID of the room")
+    venue_name: str | None = Field(None, description="Name of the venue")
 
     class Config:
         from_attributes = True

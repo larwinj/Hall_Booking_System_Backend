@@ -43,6 +43,16 @@ class VenueBase(BaseModel):
         max_length=500,
         description="Optional description of the venue (up to 500 characters)",
     )
+    contact_phone: str | None = Field(
+        None,
+        max_length=20,
+        description="Contact phone number for the venue",
+    )
+    contact_email: str | None = Field(
+        None,
+        max_length=255,
+        description="Contact email address for the venue",
+    )
 
 
 class VenueCreate(VenueBase):
@@ -58,6 +68,8 @@ class VenueUpdate(BaseModel):
     country: str | None = Field(None, min_length=2, max_length=100, description="Updated country")
     postal_code: str | None = Field(None, pattern=r"^[A-Za-z0-9\s-]{4,10}$", description="Updated postal code")
     description: str | None = Field(None, max_length=500, description="Updated venue description")
+    contact_phone: str | None = Field(None, max_length=20, description="Updated contact phone number")
+    contact_email: str | None = Field(None, max_length=255, description="Updated contact email address")
 
 
 class VenueOut(VenueBase):

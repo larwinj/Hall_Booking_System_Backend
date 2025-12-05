@@ -12,6 +12,8 @@ class Venue(Base):
     country: Mapped[str] = mapped_column(String(128))
     postal_code: Mapped[str] = mapped_column(String(32))
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    contact_phone: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    contact_email: Mapped[str | None] = mapped_column(String(255), nullable=True)
 
     rooms = relationship("Room", back_populates="venue", cascade="all, delete-orphan")
     moderators = relationship("User", back_populates="assigned_venue")
