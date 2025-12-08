@@ -32,13 +32,20 @@ async def get_monthly_report(
         raise HTTPException(400, f"Invalid month-year: {str(e)}")
     
     
-@router.get("/venue-report", response_model=VenueAnalyticsReport, description="Access by admins only")
+@router.get("/venue-report", response_model=VenueAnalyticsReport, description="Access by moderators and admins")
 async def report_of_venue(
     venue_id: int,
     days: int = Query(7, ge=1, le=365, description="Number of days for the report (1-365)"),
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_role(UserRole.admin))
+    user: User = Depends(require_role(UserRole.moderator, UserRole.admin))
 ):
+    # If user is moderator, verify they can only access their assigned venue
+    if user.role == UserRole.moderator:
+        if not user.assigned_venue_id:
+            raise HTTPException(status_code=403, detail="No venue assigned to this moderator")
+        if user.assigned_venue_id != venue_id:
+            raise HTTPException(status_code=403, detail="Access denied: You can only view analytics for your assigned venue")
+    
     try:
         report = await get_venue_analytics_report(db, venue_id, days)
         return VenueAnalyticsReport(**report)
