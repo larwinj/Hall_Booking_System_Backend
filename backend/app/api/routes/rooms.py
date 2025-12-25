@@ -99,7 +99,12 @@ async def create_room(
             db.add(Addon(venue_id=venue_id, room_id=room.id, **addon.model_dump()))
 
     await db.commit()
-    await db.refresh(room)
+    
+    # Reload room with venue relationship for response serialization
+    result = await db.execute(
+        select(Room).options(joinedload(Room.venue)).where(Room.id == room.id)
+    )
+    room = result.scalar_one()
     return room
 
 
@@ -187,7 +192,12 @@ async def update_room(
         pass  # Placeholder - add logic for addon updates
     
     await db.commit()
-    await db.refresh(room)
+    
+    # Reload room with venue relationship for response serialization
+    result = await db.execute(
+        select(Room).options(joinedload(Room.venue)).where(Room.id == room_id)
+    )
+    room = result.scalar_one()
     return room
 
 @router.post("/{room_id}/check-availability", description="Check if room is available for booking")
@@ -279,3 +289,38 @@ async def delete_room(room_id: int, user=Depends(get_current_user), db: AsyncSes
     await db.delete(room)
     await db.commit()
     return {"success": True}
+
+@router.patch("/{room_id}/toggle-status", description="Access by moderators,admins - Toggle room availability status")
+async def toggle_room_status(
+    room_id: int,
+    user=Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Toggle room availability status between active (True) and inactive (False).
+    Only moderators and admins can toggle room status.
+    """
+    if user.role not in [UserRole.moderator, UserRole.admin]:
+        raise HTTPException(status_code=403, detail="Insufficient permissions")
+    
+    room = (await db.execute(select(Room).where(Room.id == room_id))).scalar_one_or_none()
+    if not room:
+        raise HTTPException(status_code=404, detail="Room not found")
+    
+    if user.role == UserRole.moderator and user.assigned_venue_id != room.venue_id:
+        raise HTTPException(
+            status_code=403, 
+            detail=f"Cannot modify room outside assigned venue. Assigned: {user.assigned_venue_id}, Target: {room.venue_id}"
+        )
+    
+    # Toggle the status
+    room.status = not room.status
+    await db.commit()
+    await db.refresh(room)
+    
+    return {
+        "success": True,
+        "room_id": room.id,
+        "status": room.status,
+        "message": f"Room is now {'available' if room.status else 'unavailable'} for booking"
+    }

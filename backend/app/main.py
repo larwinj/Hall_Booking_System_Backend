@@ -4,7 +4,7 @@ from contextlib import asynccontextmanager
 from fastapi.responses import JSONResponse
 from app.core.config import get_settings
 from app.core.logging_conf import setup_logging
-from app.api.routes import health, auth, users, venues, rooms, addons, bookings, favorites, reviews, queries, reports, search, cms, analyticsreports, backup, wallet, booking_reports, meetings
+from app.api.routes import health, auth, users, venues, rooms, addons, bookings, favorites, reviews, queries, reports, search, cms, analyticsreports, backup, wallet, booking_reports, meetings, ai
 from app.middleware.cors import setup_cors_middleware
 # from app.middleware.security_headers import setup_security_headers_middleware
 from app.middleware.rate_limiting import setup_rate_limiting_middleware
@@ -82,3 +82,4 @@ app.include_router(backup.router)
 app.include_router(wallet.router)
 app.include_router(meetings.router)
 app.include_router(health.router)
+app.include_router(ai.router)

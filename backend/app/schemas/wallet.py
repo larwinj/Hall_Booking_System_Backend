@@ -38,6 +38,18 @@ class WalletTransactionOut(WalletTransactionBase):
 class WalletWithTransactions(WalletOut):
     transactions: list[WalletTransactionOut] = Field(default_factory=list, description="List of wallet transactions")
 
+class WalletPaymentRequest(BaseModel):
+    amount: float = Field(..., gt=0, description="Amount to deduct from wallet")
+    description: str = Field(..., min_length=1, description="Payment description")
+
+class WalletPaymentResponse(BaseModel):
+    success: bool = Field(..., description="Whether payment was successful")
+    transaction: Optional[WalletTransactionOut] = Field(None, description="Transaction details if successful")
+    wallet_balance: float = Field(..., ge=0, description="Current wallet balance after payment")
+    amount_paid: float = Field(..., ge=0, description="Amount paid from wallet")
+    remaining_amount: float = Field(..., ge=0, description="Remaining amount to pay via other methods")
+    message: str = Field(..., description="Result message")
+
 class RefundCalculation(BaseModel):
     original_amount: float = Field(..., ge=0, description="Original booking amount")
     refund_percentage: float = Field(..., ge=0, le=100, description="Refund percentage applied")

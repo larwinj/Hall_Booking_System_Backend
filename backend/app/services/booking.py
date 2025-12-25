@@ -17,7 +17,7 @@ async def has_conflict(
 ) -> bool:
     stmt = select(Booking).where(
         Booking.room_id == room_id,
-        Booking.status != BookingStatus.cancelled,
+        Booking.status.notin_([BookingStatus.cancelled, BookingStatus.completed]),
         Booking.start_time < end_time,
         Booking.end_time > start_time,
     )

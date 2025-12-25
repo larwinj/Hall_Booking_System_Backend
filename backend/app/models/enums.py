@@ -9,6 +9,7 @@ class BookingStatus(str, enum.Enum):
     pending = "pending"
     confirmed = "confirmed"
     cancelled = "cancelled"
+    completed = "completed"
 
 class QueryStatus(str, enum.Enum):
     open = "open"

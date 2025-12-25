@@ -71,7 +71,7 @@ async def search_rooms(
             and_(
                 Booking.start_time < full_end,
                 Booking.end_time > full_start,
-                Booking.status != BookingStatus.cancelled
+                Booking.status.notin_([BookingStatus.cancelled, BookingStatus.completed])
             )
         ).scalar_subquery()
         stmt = stmt.where(Room.id.notin_(conflict_subq))
@@ -111,7 +111,7 @@ async def search_rooms(
             and_(
                 Booking.start_time < full_end,
                 Booking.end_time > full_start,
-                Booking.status != BookingStatus.cancelled
+                Booking.status.notin_([BookingStatus.cancelled, BookingStatus.completed])
             )
         ).scalar_subquery()
         stmt_fb = stmt_fb.where(Room.id.notin_(conflict_subq_fb))

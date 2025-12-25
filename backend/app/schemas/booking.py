@@ -110,6 +110,44 @@ class BookingCreate(BaseModel):
             raise ValueError("end_time must be after start_time.")
         return end_datetime
 
+class RoomInfo(BaseModel):
+    """Minimal room info for booking responses"""
+    id: int
+    name: str
+    type: str
+    capacity: int
+    rate_per_hour: float
+    venue_name: str | None = None
+    
+    class Config:
+        from_attributes = True
+
+class CustomerOut(BaseModel):
+    """Customer output schema for booking responses"""
+    id: int
+    booking_id: int
+    user_id: int | None = None
+    first_name: str | None = None
+    last_name: str | None = None
+    email: str | None = None
+    address: str | None = None
+    phone: str | None = None
+    
+    class Config:
+        from_attributes = True
+
+
+class AddonOut(BaseModel):
+    """Addon output schema for booking responses"""
+    id: int
+    booking_id: int
+    addon_id: int
+    quantity: int
+    subtotal: float
+    
+    class Config:
+        from_attributes = True
+
 class BookingOut(BaseModel):
     id: int = Field(..., ge=1, description="Unique identifier of the booking.")
     room_id: int = Field(..., ge=1, description="ID of the room booked.")
@@ -118,9 +156,16 @@ class BookingOut(BaseModel):
     status: str = Field(..., description="Current status of the booking (e.g., confirmed, cancelled).")
     total_cost: float = Field(..., ge=0, description="Total cost of the booking (cannot be negative).")
     rescheduled: bool = Field(..., description="Indicates if the booking was rescheduled.")
+    booking_code: str | None = Field(None, description="Unique booking code")
+    created_at: datetime | None = Field(None, description="Booking creation timestamp")
+    updated_at: datetime | None = Field(None, description="Booking update timestamp")
+    room: RoomInfo | None = Field(None, description="Room details including venue name")
+    customers: List[CustomerOut] = Field(default_factory=list, description="List of customers")
+    addons: List[AddonOut] = Field(default_factory=list, description="List of addons")
 
     class Config:
         from_attributes = True
+
 
 class BookingReschedule(BaseModel):
     date: dt.date = Field(..., description="New booking date (YYYY-MM-DD format).")

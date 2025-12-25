@@ -55,28 +55,31 @@ class VenueReportService:
         confirmed_bookings = len([b for b in all_bookings if b.status == BookingStatus.confirmed])
         cancelled_bookings = len([b for b in all_bookings if b.status == BookingStatus.cancelled])
         pending_bookings = len([b for b in all_bookings if b.status == BookingStatus.pending])
+        completed_bookings = len([b for b in all_bookings if b.status == BookingStatus.completed])
         rescheduled_bookings = len([b for b in all_bookings if b.rescheduled])
         
-        # Calculate revenue (only from confirmed bookings)
-        confirmed_bookings_list = [b for b in all_bookings if b.status == BookingStatus.confirmed]
-        total_revenue = sum(booking.total_cost for booking in confirmed_bookings_list)
-        average_booking_value = total_revenue / confirmed_bookings if confirmed_bookings > 0 else 0
+        # Calculate revenue (from confirmed and completed bookings)
+        revenue_bookings_list = [b for b in all_bookings if b.status in [BookingStatus.confirmed, BookingStatus.completed]]
+        total_revenue = sum(booking.total_cost for booking in revenue_bookings_list)
+        revenue_count = len(revenue_bookings_list)
+        average_booking_value = total_revenue / revenue_count if revenue_count > 0 else 0
         
         # Room-wise breakdown
         room_breakdown = []
         for room in rooms:
             room_bookings = [b for b in all_bookings if b.room_id == room.id]
-            room_confirmed = [b for b in room_bookings if b.status == BookingStatus.confirmed]
-            room_revenue = sum(b.total_cost for b in room_confirmed)
+            room_revenue_bookings = [b for b in room_bookings if b.status in [BookingStatus.confirmed, BookingStatus.completed]]
+            room_revenue = sum(b.total_cost for b in room_revenue_bookings)
             
             room_breakdown.append({
                 "room_id": room.id,
                 "room_name": room.name,
                 "total_bookings": len(room_bookings),
-                "confirmed_bookings": len(room_confirmed),
+                "confirmed_bookings": len([b for b in room_bookings if b.status == BookingStatus.confirmed]),
+                "completed_bookings": len([b for b in room_bookings if b.status == BookingStatus.completed]),
                 "cancelled_bookings": len([b for b in room_bookings if b.status == BookingStatus.cancelled]),
                 "total_revenue": room_revenue,
-                "occupancy_rate": len(room_confirmed) / len(room_bookings) * 100 if room_bookings else 0
+                "occupancy_rate": len(room_revenue_bookings) / len(room_bookings) * 100 if room_bookings else 0
             })
         
         # Daily trend
@@ -84,13 +87,14 @@ class VenueReportService:
         current_date = start_date
         while current_date <= end_date:
             day_bookings = [b for b in all_bookings if b.start_time.date() == current_date]
-            day_confirmed = [b for b in day_bookings if b.status == BookingStatus.confirmed]
-            day_revenue = sum(b.total_cost for b in day_confirmed)
+            day_revenue_bookings = [b for b in day_bookings if b.status in [BookingStatus.confirmed, BookingStatus.completed]]
+            day_revenue = sum(b.total_cost for b in day_revenue_bookings)
             
             daily_trend.append({
                 "date": current_date.isoformat(),
                 "total_bookings": len(day_bookings),
-                "confirmed_bookings": len(day_confirmed),
+                "confirmed_bookings": len([b for b in day_bookings if b.status == BookingStatus.confirmed]),
+                "completed_bookings": len([b for b in day_bookings if b.status == BookingStatus.completed]),
                 "revenue": day_revenue,
                 "day_name": current_date.strftime("%A")
             })
@@ -100,7 +104,8 @@ class VenueReportService:
         status_distribution = {
             "confirmed": confirmed_bookings,
             "cancelled": cancelled_bookings,
-            "pending": pending_bookings
+            "pending": pending_bookings,
+            "completed": completed_bookings
         }
         
         # Peak hours analysis (only from confirmed bookings)
@@ -131,6 +136,7 @@ class VenueReportService:
             "confirmed_bookings": confirmed_bookings,
             "cancelled_bookings": cancelled_bookings,
             "pending_bookings": pending_bookings,
+            "completed_bookings": completed_bookings,
             "rescheduled_bookings": rescheduled_bookings,
             "average_booking_value": round(average_booking_value, 2),
             "room_breakdown": room_breakdown,

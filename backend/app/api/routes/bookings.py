@@ -65,7 +65,19 @@ async def create_booking(payload: BookingCreate, user=Depends(get_current_user),
         db.add(BookingAddon(booking_id=booking.id, addon_id=addon_id, quantity=qty, subtotal=subtotal))
 
     await db.commit()
-    await db.refresh(booking)
+    
+    # Eagerly load relationships to avoid lazy loading issues
+    from sqlalchemy.orm import joinedload
+    result = await db.execute(
+        select(Booking)
+        .options(
+            joinedload(Booking.room).joinedload(Room.venue),
+            joinedload(Booking.customers),
+            joinedload(Booking.addons)
+        )
+        .where(Booking.id == booking.id)
+    )
+    booking = result.unique().scalar_one()
 
     # Send booking confirmation notification (in background)
     try:
@@ -78,9 +90,21 @@ async def create_booking(payload: BookingCreate, user=Depends(get_current_user),
 
 @router.get("/me", response_model=list[BookingOut],description="Access by customers")
 async def my_bookings(user=Depends(get_current_user), db: AsyncSession = Depends(get_db)):
-    stmt = select(Booking).join(BookingCustomer).where(BookingCustomer.user_id == user.id).order_by(Booking.created_at.desc())
+    from sqlalchemy.orm import joinedload
+    stmt = (
+        select(Booking)
+        .options(
+            joinedload(Booking.room).joinedload(Room.venue),
+            joinedload(Booking.customers),
+            joinedload(Booking.addons)
+        )
+        .join(BookingCustomer)
+        .where(BookingCustomer.user_id == user.id)
+        .order_by(Booking.created_at.desc())
+    )
     res = await db.execute(stmt)
-    return res.scalars().all()
+    return res.unique().scalars().all()
+
 
 @router.get("/", response_model=list[BookingOut], description="Access by moderators,admins - Get all bookings")
 async def get_all_bookings(user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
@@ -89,6 +113,8 @@ async def get_all_bookings(user: User = Depends(get_current_user), db: AsyncSess
     Moderators see only bookings for their assigned venue.
     Admins see all bookings.
     """
+    from sqlalchemy.orm import joinedload
+    
     if user.role == UserRole.customer:
         raise HTTPException(status_code=403, detail="Insufficient permissions")
     
@@ -102,14 +128,34 @@ async def get_all_bookings(user: User = Depends(get_current_user), db: AsyncSess
         rooms = rooms_result.scalars().all()
         room_ids = [r.id for r in rooms]
         
-        # Get all bookings for these rooms
-        bookings_query = select(Booking).where(Booking.room_id.in_(room_ids)) if room_ids else select(Booking).where(False)
+        # Get all bookings for these rooms with eager loading
+        if room_ids:
+            bookings_query = (
+                select(Booking)
+                .options(
+                    joinedload(Booking.room).joinedload(Room.venue),
+                    joinedload(Booking.customers),
+                    joinedload(Booking.addons)
+                )
+                .where(Booking.room_id.in_(room_ids))
+            )
+        else:
+            bookings_query = select(Booking).where(False)
+        
         bookings_result = await db.execute(bookings_query)
-        return bookings_result.scalars().all()
+        return bookings_result.unique().scalars().all()
     
-    # Admin: return all bookings
-    result = await db.execute(select(Booking))
-    return result.scalars().all()
+    # Admin: return all bookings with eager loading
+    result = await db.execute(
+        select(Booking)
+        .options(
+            joinedload(Booking.room).joinedload(Room.venue),
+            joinedload(Booking.customers),
+            joinedload(Booking.addons)
+        )
+    )
+    return result.unique().scalars().all()
+
 
 @router.post("/{booking_id}/reschedule", response_model=RescheduleResponse, description="Access by customers,moderators,admins.")
 async def reschedule_booking(
@@ -386,6 +432,61 @@ async def get_booking_reschedule_history(
 
     history = await WalletService.get_booking_reschedule_history(db, booking_id)
     return history
+
+@router.post("/{booking_id}/complete", description="Access by moderators,admins - Mark booking as completed")
+async def complete_booking(
+    booking_id: int,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Mark a confirmed booking as completed.
+    Only moderators and admins can complete bookings.
+    """
+    # Check user permissions
+    if user.role == UserRole.customer:
+        raise HTTPException(status_code=403, detail="Only moderators and admins can complete bookings")
+    
+    # Get the booking
+    booking = (await db.execute(select(Booking).where(Booking.id == booking_id))).scalar_one_or_none()
+    if not booking:
+        raise HTTPException(status_code=404, detail="Booking not found")
+    
+    # For moderators, verify booking belongs to their venue
+    if user.role == UserRole.moderator:
+        if not user.assigned_venue_id:
+            raise HTTPException(status_code=403, detail="No venue assigned to moderator")
+        
+        # Get the room to check venue ownership
+        room_result = await db.execute(select(Room).where(Room.id == booking.room_id))
+        room = room_result.scalar_one_or_none()
+        
+        if not room or room.venue_id != user.assigned_venue_id:
+            raise HTTPException(status_code=403, detail="Booking does not belong to your assigned venue")
+    
+    # Check if booking is in a valid state for completion
+    if booking.status == BookingStatus.completed:
+        raise HTTPException(status_code=400, detail="Booking is already completed")
+    
+    if booking.status == BookingStatus.cancelled:
+        raise HTTPException(status_code=400, detail="Cannot complete a cancelled booking")
+    
+    if booking.status == BookingStatus.pending:
+        raise HTTPException(status_code=400, detail="Cannot complete a pending booking. Please confirm it first.")
+    
+    # Mark booking as completed
+    booking.status = BookingStatus.completed
+    booking.updated_at = datetime.now(timezone.utc)
+    
+    await db.commit()
+    await db.refresh(booking)
+    
+    return {
+        "success": True,
+        "message": "Booking marked as completed successfully",
+        "booking_id": booking.id,
+        "status": booking.status.value
+    }
 
 @router.get("/room-bookings", response_model=RoomBookingsResponse, description="Access by moderators,admins")
 async def get_room_bookings_by_date(

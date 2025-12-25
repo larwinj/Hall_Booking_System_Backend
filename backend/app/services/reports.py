@@ -310,7 +310,7 @@ async def get_venue_analytics_report(
             Booking.room_id.in_(room_ids),
             Booking.start_time >= start_date,
             Booking.start_time < end_date + timedelta(days=1),
-            Booking.status == BookingStatus.confirmed
+            Booking.status.in_([BookingStatus.confirmed, BookingStatus.completed])
         )
     )
     
@@ -503,7 +503,7 @@ async def get_location_analytics_report(
             Booking.room_id.in_(room_ids),
             Booking.start_time >= start_date,
             Booking.start_time < end_date + timedelta(days=1),
-            Booking.status == BookingStatus.confirmed
+            Booking.status.in_([BookingStatus.confirmed, BookingStatus.completed])
         )
     )
     
